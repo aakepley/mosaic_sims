@@ -37,6 +37,11 @@ def runTests(analysisDir, vis, casa1,casa2):
 
 def estimateRMS(vis,casa):
 
+    '''
+    create a dirty image and use that to estimate the RMS noise
+    '''
+
+
 
     outStr = '''
 import os 
@@ -77,6 +82,10 @@ fout.close()
 
 def createMask(vis,casa):
 
+    '''
+    use auto-multithresh to create a mask for the image
+    '''
+
 
     f = open('rms.txt','r')
     dirtyrms = f.readline()
@@ -116,6 +125,10 @@ os.system('cp -ir '+imagename+'.mask final.mask')
     fout.close()
 
 def createCleanImage(vis,casa):
+
+    '''
+    clean the image using the previously determined mask and threshold.
+    '''
 
     f = open('rms.txt','r')
     dirtyrms = f.readline()
@@ -167,6 +180,10 @@ tclean(vis=vis,
 
 
 def createAnalysis(vis,casa1,casa2):
+
+    '''
+    compare the images produced by two different versions of casa
+    '''
 
     outStr = '''
 import analyzemsimage as ami
