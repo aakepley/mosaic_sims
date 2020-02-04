@@ -1,33 +1,28 @@
 import os
 
-def runTests(analysisDir, vis, casa1,casa2):
+def runTests(vis, casa1, casa2, image_params={'robust':'0.5',
+                                              'imsize':'[140,140]',
+                                              'cell':'2.4arcsec',
+                                              'phasecenter':'ICRS 05:00:00.0 -053.00.00.0'}):
 
     '''
     setup the appropriate tests
     '''
-
-    vis = '../sims/trirand_03x03_07m_0.20_edge0.23_noise.aca.cycle6.noisy.ms'
-    casa1 = {'path':'/home/casa/packages/RHEL7/release/casa-pipeline-release-5.6.1-8.el7',
-             'name':'5.6.1_8'}
-
-    casa2 = {'path':'/home/casa/packages/RHEL7/release/casa-pipeline-release-5.6.1-8.el7',
-             'name':'5.6.1_8_try2'}
-
-
+   
     print('Estimating the RMS')
-    estimateRMS(vis,casa1)
+    estimateRMS(vis,casa1, image_params)
     os.system(casa1['path']+'/bin/casa -c estimate.py')
 
     print('Creating a mask')
-    createMask(vis,casa1)
+    createMask(vis,casa1, image_params)
     os.system(casa1['path'] + '/bin/casa -c mask.py')
 
     print('Cleaning the first image')
-    createCleanImage(vis,casa1)
+    createCleanImage(vis,casa1,image_params)
     os.system(casa1['path']+'/bin/casa' + ' -c tclean_'+casa1['name']+'.py')
 
     print ('Cleaning the second image')
-    createCleanImage(vis,casa2)
+    createCleanImage(vis,casa2, image_params)
     os.system(casa2['path']+'/bin/casa' + ' -c tclean_'+casa2['name']+'.py')
 
     print('Doing Analysis')
@@ -35,24 +30,23 @@ def runTests(analysisDir, vis, casa1,casa2):
     os.system(casa1['path']+'/bin/casa' + ' -c analysis.py')
 
 
-def estimateRMS(vis,casa):
+def estimateRMS(vis,casa,image_params):
 
     '''
     create a dirty image and use that to estimate the RMS noise
     '''
 
 
-
     outStr = '''
 import os 
 
 vis = '{0:s}'
-robust = 0.5
-imsize = [140,140]
-cell = '2.4arcsec'
-phasecenter = 'ICRS 05:00:00.0 -053.00.00.0'
+robust = {1:s}
+imsize = {2:s}
+cell = '{3:s}'
+phasecenter = '{4:s}'
     
-imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.dirty_'+'{1:s}'
+imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.dirty_'+'{5:s}'
 os.system('rm -rf '+imagename+'.*')
 tclean(vis=vis,
        imsize=imsize,cell=cell,
@@ -71,7 +65,12 @@ dirtyrms = 0.5 * 1.4825 * aU.imageImstat(img=imagename+'.image',
 fout = open('rms.txt','w')
 fout.write(str(dirtyrms))
 fout.close()
-    '''.format(vis,casa['name'])
+    '''.format(vis,
+               image_params['robust'],
+               image_params['imsize'],
+               image_params['cell'],
+               image_params['phasecenter'],
+               casa['name'])
 
     print(outStr)
 
@@ -80,7 +79,7 @@ fout.close()
     fout.write(outStr)
     fout.close()
 
-def createMask(vis,casa):
+def createMask(vis,casa,image_params):
 
     '''
     use auto-multithresh to create a mask for the image
@@ -93,12 +92,12 @@ def createMask(vis,casa):
 
     outStr = '''
 vis = '{0:s}'
-robust = 0.5
-imsize = [140,140]
-cell = '2.4arcsec'
-phasecenter = 'ICRS 05:00:00.0 -053.00.00.0'
+robust = {1:s}
+imsize = {2:s}
+cell = '{3:s}'
+phasecenter = '{4:s}'
 
-imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.clean_'+'{1:s}'
+imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.clean_'+'{5:s}'
 os.system('rm -rf '+imagename+'.*')
 tclean(vis=vis,
        imsize=imsize,cell=cell,
@@ -107,7 +106,7 @@ tclean(vis=vis,
        phasecenter=phasecenter,mosweight=True,
        gridder='mosaic', pblimit=0.2, deconvolver='hogbom',
        restoration=True,pbcor=True,
-       weighting='briggs', robust=robust, niter=100000, threshold='{2:s}Jy',
+       weighting='briggs', robust=robust, niter=100000, threshold='{6:s}Jy',
        interactive=0, savemodel='none', parallel=False,
        usemask='auto-multithresh', sidelobethreshold=1.25,smoothfactor=0.7,
        noisethreshold=5.0, lownoisethreshold=4.00, negativethreshold=0.0,
@@ -115,7 +114,13 @@ tclean(vis=vis,
        minpercentchange=1.0)
 
 os.system('cp -ir '+imagename+'.mask final.mask') 
-    '''.format(vis,casa['name'],dirtyrms)
+    '''.format(vis,
+               image_params['robust'],
+               image_params['imsize'],
+               image_params['cell'],
+               image_params['phasecenter'],
+               casa['name'],
+               dirtyrms)
 
     print(outStr)
 
@@ -124,7 +129,7 @@ os.system('cp -ir '+imagename+'.mask final.mask')
     fout.write(outStr)
     fout.close()
 
-def createCleanImage(vis,casa):
+def createCleanImage(vis,casa,image_params):
 
     '''
     clean the image using the previously determined mask and threshold.
@@ -136,12 +141,12 @@ def createCleanImage(vis,casa):
 
     outStr = '''
 vis = '{0:s}'
-robust = 0.5
-imsize = [140,140]
-cell = '2.4arcsec'
-phasecenter = 'ICRS 05:00:00.0 -053.00.00.0'
+robust = {1:s}
+imsize = {2:s}
+cell = '{3:s}'
+phasecenter = '{4:s}'
 
-imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.dirty_'+'{1:s}'
+imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.dirty_'+'{5:s}'
 os.system('rm -rf '+imagename+'.*')
 tclean(vis=vis,
        imsize=imsize,cell=cell,
@@ -154,7 +159,7 @@ tclean(vis=vis,
        interactive=0, savemodel='none', parallel=False)
 
 
-imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.clean_'+'{1:s}'
+imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.clean_'+'{5:s}'
 os.system('rm -rf '+imagename+'.*')
 tclean(vis=vis,
        imsize=imsize,cell=cell,
@@ -163,11 +168,16 @@ tclean(vis=vis,
        phasecenter=phasecenter,mosweight=True,
        gridder='mosaic', pblimit=0.2, deconvolver='hogbom',
        restoration=True,pbcor=True,
-       weighting='briggs', robust=robust, niter=100000, threshold='{2:s}Jy',
+       weighting='briggs', robust=robust, niter=100000, threshold='{6:s}Jy',
        interactive=0, savemodel='none', parallel=False,
        mask='final.mask')
     
-    '''.format(vis,casa['name'],dirtyrms)
+    '''.format(vis,
+               image_params['robust'],
+               image_params['imsize'],
+               image_params['cell'],
+               image_params['phasecenter'],
+               casa['name'],dirtyrms)
 
     filename = 'tclean_'+casa['name']+'.py'
 
