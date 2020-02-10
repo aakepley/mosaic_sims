@@ -197,6 +197,7 @@ def createAnalysis(vis,casa1,casa2):
 
     outStr = '''
 import analyzemsimage as ami
+import csv
 
 vis = '{0:s}'
 img0=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.clean_'+'{1:s}'+'.image.pbcor'
@@ -299,11 +300,31 @@ print('The min, max, and median differences inside the 0.5 PB ({1:s}) level are:
 
 print('The min, max, and median differences between the 0.2 and  0.5 PB ({1:s}) level are: %.3f, %.3f, %.3f'%(outstatsdiff['min'][0],outstatsdiff['max'][0],outstatsdiff['median'][0]))
 
-    '''.format(vis, casa1['name'], casa2['name'])
+with open('output.csv','w') as csvfile:    
+    mywriter = csv.writer(csvfile)
+    mywriter.writerow(['#vis',
+                       'casa1 name', 'casa1 path', 
+                       'casa2 name', 'casa2 path',
+                       'rms noise {1:s}', 'rms noise {2:s}',
+                       'min % diff within PB 0.5','max % diff within PB 0.5','median % diff within PB 0.5',
+                       'min % diff bet PB 0.5-0.2','max % diff bet PB 0.5-0.2','median % diff bet PB 0.5 -0.2',
+                       'min diff within PB 0.5','max diff within PB 0.5','median diff within PB 0.5',
+                       'min diff bet PB 0.5-0.2','max diff bet PB 0.5-0.2','median diff bet PB 0.5 -0.2',])
+    mywriter.writerow(['{0:s}', 
+                       '{1:s}', '{3:s}',
+                       '{2:s}', '{4:s}',
+                       rms0,rms1,
+                       statspdiff['min'][0],statspdiff['max'][0],statspdiff['median'][0],
+                       outstatspdiff['min'][0],outstatspdiff['max'][0],outstatspdiff['median'][0],
+                       statsdiff['min'][0],statsdiff['max'][0],statsdiff['median'][0],
+                       outstatsdiff['min'][0],outstatsdiff['max'][0],outstatsdiff['median'][0]])
+
+
+    '''.format(vis, casa1['name'], casa2['name'],casa1['path'],casa2['path'])
     
     fout = open('analysis.py','w')
-    fout.write('#CASA1: '+casa1['path'])
-    fout.write('#CASA2: '+casa1['path'])
+    fout.write('#CASA1: '+casa1['path']+'\n')
+    fout.write('#CASA2: '+casa1['path']+'\n')
     fout.write(outStr)
     fout.close()
 
