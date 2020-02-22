@@ -90,12 +90,23 @@ def createMask(vis,casa,image_params):
     dirtyrms = f.readline()
     f.close()
 
+    if 'sidelobethreshold' in image_params:
+        sidelobethreshold = image_params['sidelobethreshold']
+    else:
+        sidelobethreshold = '1.25'
+
+    if 'cyclefactor' in image_params:
+        cyclefactor = image_params['cyclefactor']
+    else:
+        cyclefactor='1.0'
+
     outStr = '''
 vis = '{0:s}'
 robust = {1:s}
 imsize = {2:s}
 cell = '{3:s}'
 phasecenter = '{4:s}'
+sidelobethreshold = {7:s}
 
 imagename=os.path.basename(vis).replace('noise.aca.cycle6.','')+'.clean_'+'{5:s}'
 os.system('rm -rf '+imagename+'.*')
@@ -108,19 +119,21 @@ tclean(vis=vis,
        restoration=True,pbcor=True,
        weighting='briggs', robust=robust, niter=100000, threshold='{6:s}Jy',
        interactive=0, savemodel='none', parallel=False,
-       usemask='auto-multithresh', sidelobethreshold=1.25,smoothfactor=0.7,
+       usemask='auto-multithresh', sidelobethreshold=sidelobethreshold,smoothfactor=0.7,
        noisethreshold=5.0, lownoisethreshold=4.00, negativethreshold=0.0,
        minbeamfrac=0.3, growiterations=75, dogrowprune=True,
-       minpercentchange=1.0)
+       minpercentchange=1.0,cyclefactor={8:s})
 
-os.system('cp -ir '+imagename+'.mask final.mask') 
-    '''.format(vis,
-               image_params['robust'],
-               image_params['imsize'],
-               image_params['cell'],
-               image_params['phasecenter'],
-               casa['name'],
-               dirtyrms)
+os.system('cp -r '+imagename+'.mask final.mask') 
+    '''.format(vis, #0
+               image_params['robust'], #1
+               image_params['imsize'], #2
+               image_params['cell'], #3
+               image_params['phasecenter'], #4
+               casa['name'], #5
+               dirtyrms,#6
+               sidelobethreshold, #7
+               cyclefactor) #8
 
     print(outStr)
 
@@ -138,6 +151,11 @@ def createCleanImage(vis,casa,image_params):
     f = open('rms.txt','r')
     dirtyrms = f.readline()
     f.close()
+
+    if 'cyclefactor' in image_params:
+        cyclefactor = image_params['cyclefactor']
+    else:
+        cyclefactor='1.0'
 
     outStr = '''
 vis = '{0:s}'
@@ -170,14 +188,15 @@ tclean(vis=vis,
        restoration=True,pbcor=True,
        weighting='briggs', robust=robust, niter=100000, threshold='{6:s}Jy',
        interactive=0, savemodel='none', parallel=False,
-       mask='final.mask')
+       mask='final.mask',cyclefactor={7:s})
     
-    '''.format(vis,
-               image_params['robust'],
-               image_params['imsize'],
-               image_params['cell'],
-               image_params['phasecenter'],
-               casa['name'],dirtyrms)
+    '''.format(vis, #0
+               image_params['robust'], #1
+               image_params['imsize'], #2
+               image_params['cell'], #3
+               image_params['phasecenter'], #4
+               casa['name'],dirtyrms, #5, #6
+               cyclefactor) #7
 
     filename = 'tclean_'+casa['name']+'.py'
 
@@ -194,6 +213,14 @@ def createAnalysis(vis,casa1,casa2):
     '''
     compare the images produced by two different versions of casa
     '''
+
+    import re
+
+    tmp = re.search('_(\d\d)x(\d\d)',vis)
+    simsize = [int(tmp[1]),int(tmp[2])]
+
+    array = int(re.search('_(\d\d)m_',vis)[1])
+    
 
     outStr = '''
 import analyzemsimage as ami
@@ -302,17 +329,21 @@ print('The min, max, and median differences between the 0.2 and  0.5 PB ({1:s}) 
 
 with open('output.csv','w') as csvfile:    
     mywriter = csv.writer(csvfile)
-    mywriter.writerow(['#vis',
-                       'casa1 name', 'casa1 path', 
-                       'casa2 name', 'casa2 path',
-                       'rms noise {1:s}', 'rms noise {2:s}',
-                       'min % diff within PB 0.5','max % diff within PB 0.5','median % diff within PB 0.5',
-                       'min % diff bet PB 0.5-0.2','max % diff bet PB 0.5-0.2','median % diff bet PB 0.5 -0.2',
-                       'min diff within PB 0.5','max diff within PB 0.5','median diff within PB 0.5',
-                       'min diff bet PB 0.5-0.2','max diff bet PB 0.5-0.2','median diff bet PB 0.5 -0.2',])
+    mywriter.writerow(['# vis',
+                       'casa1_name', 'casa1_path', 
+                       'casa2_name', 'casa2_path',
+                       'x_size', 'y_size',
+                       'array',
+                       'rms_{1:s}', 'rms_{2:s}',
+                       'pdiff_min_pb05', 'pdiff_max_pb05', 'pdiff_med_pb05',
+                       'pdiff_min_pb0502', 'pdiff_max_pb0502', 'pdiff_med_pb0502',
+                       'diff_min_pb05', 'diff_max_pb05', 'diff_med_pb05',
+                       'diff_min_pb0502', 'diff_max_pb0502', 'diff_med_pb0502'])
     mywriter.writerow(['{0:s}', 
                        '{1:s}', '{3:s}',
                        '{2:s}', '{4:s}',
+                       '{5:d}','{6:d}',
+                       '{7:d}',
                        rms0,rms1,
                        statspdiff['min'][0],statspdiff['max'][0],statspdiff['median'][0],
                        outstatspdiff['min'][0],outstatspdiff['max'][0],outstatspdiff['median'][0],
@@ -320,11 +351,42 @@ with open('output.csv','w') as csvfile:
                        outstatsdiff['min'][0],outstatsdiff['max'][0],outstatsdiff['median'][0]])
 
 
-    '''.format(vis, casa1['name'], casa2['name'],casa1['path'],casa2['path'])
+    '''.format(vis, casa1['name'], casa2['name'],casa1['path'],casa2['path'],simsize[0],simsize[1],array)
     
     fout = open('analysis.py','w')
     fout.write('#CASA1: '+casa1['path']+'\n')
     fout.write('#CASA2: '+casa1['path']+'\n')
     fout.write(outStr)
     fout.close()
+
+def collateResults(dirlist,outcsv):
+    '''
+   
+    Purpose: collate results from individual tests into single csv file
+   
+    '''
+
+    import re
+
+    firsthdr = True
+
+    fileout = open(outcsv,'w')
+
+    for mydir in dirlist:
+        filename = os.path.join(mydir,'output.csv')
+        if os.path.exists(filename):
+            filein = open(filename,'r')
+            for line in filein:
+                if re.match('#',line):
+                    if firsthdr:
+                        fileout.write(line)
+                        firsthdr = False
+                    else:
+                        continue
+                else:
+                    fileout.write(line)                                
+            filein.close()
+    fileout.close()
+
+
 
