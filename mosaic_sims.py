@@ -243,17 +243,17 @@ rms1 = ami.runImstat(Image=img1,
 # Do S/N cut of pdiff based on 5.6 rms noise 
 cut = 7 * rms1
 shortvis = vis.replace('noise.aca.cycle6.','')
-pdiff = img0.replace('image.pbcor','')+'vs.'+img1.replace(shortvis+'.clean_','')+'_pdiff'
+pdiff = img0.replace('image.pbcor','').replace('clean','dirty')+'vs.'+img1.replace(shortvis+'.clean_','')+'_pdiff'
 
 os.system('rm -rf '+pdiff)
-immath(imagename=[img0,img1],
+immath(imagename=[img0.replace('clean','dirty'),img1.replace('clean','dirty')],
        expr='100*(IM0-IM1)/IM0',
        mask=img0+'>'+str(cut)+' && '+img1+'>'+str(cut),
        outfile=pdiff)
 
-diff = img0.replace('image.pbcor','')+'vs.'+img1.replace(shortvis+'.clean_','')+'_diff'
+diff = img0.replace('image.pbcor','').replace('clean','dirty')+'vs.'+img1.replace(shortvis+'.clean_','')+'_diff'
 os.system('rm -rf '+diff)
-immath(imagename=[img0,img1],
+immath(imagename=[img0.replace('clean','dirty'),img1.replace('clean','dirty')],
         expr='(IM0-IM1)',
         outfile=diff)
 
